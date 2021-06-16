@@ -15,6 +15,7 @@ void *wrapper_func_1(void *p) {
   int tid = *(ret[0]);
   setup_idx(tid);
   _Z5findKlP5knodelP6recordPlS3_PiS2__wrapper((void *)(ret + 1));
+  return NULL;
 }
 
 void *gen_input_1(int tid, long height, knode *knodesD, long knodes_elem,
@@ -102,28 +103,28 @@ void kernel_gpu_cuda_wrapper(record *records, long records_mem, knode *knodes,
   // findK kernel
   //======================================================================================================================================================150
   int NUM_THREADS = numBlocks * threadsPerBlock;
-  pthread_t *threads = new pthread_t[NUM_THREADS];
+  pthread_t *threads = new pthread_t[threadsPerBlock];
 
   int rc;
-  int *thread_id = new int[NUM_THREADS];
 
   // set grid, block dim
-
   setup_grid_size(numBlocks, 1, 1);
   setup_block_size(threadsPerBlock, 1, 1);
 
-  for (long t = 0; t < NUM_THREADS; t++) {
-    void *inp = gen_input_1(t, maxheight, knodes, knodes_elem, records,
-                            currKnode, offset, keys, ans);
-    rc = pthread_create(&threads[t], NULL, wrapper_func_1, inp);
-    if (rc) {
-      printf("ERROR; return code from pthread_create() is %d\n", rc);
-      exit(-1);
+  for (int block_idx = 0; block_idx < numBlocks; block_idx++) {
+    for (long t = 0; t < threadsPerBlock; t++) {
+      void *inp =
+          gen_input_1(t + block_idx * threadsPerBlock, maxheight, knodes,
+                      knodes_elem, records, currKnode, offset, keys, ans);
+      rc = pthread_create(&threads[t], NULL, wrapper_func_1, inp);
+      if (rc) {
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
+        exit(-1);
+      }
     }
+    for (long t = 0; t < threadsPerBlock; t++)
+      pthread_join(threads[t], NULL);
   }
-  /* Last thing that main() should do */
-  for (long t = 0; t < NUM_THREADS; t++)
-    pthread_join(threads[t], NULL);
 
   //   findK<<<numBlocks, threadsPerBlock>>>(maxheight, knodes, knodes_elem,
   //   records,

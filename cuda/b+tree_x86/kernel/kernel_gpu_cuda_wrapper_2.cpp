@@ -15,6 +15,7 @@ void *wrapper_func_2(void *p) {
   int tid = *(ret[0]);
   setup_idx(tid);
   _Z10findRangeKlP5knodelPlS1_S1_S1_PiS2_S2_S2__wrapper((void *)(ret + 1));
+  return NULL;
 }
 
 void *gen_input_2(int tid, long height, knode *knodesD, long knodes_elem,
@@ -110,28 +111,29 @@ void kernel_gpu_cuda_wrapper_2(knode *knodes, long knodes_elem, long knodes_mem,
   //	KERNEL
   //======================================================================================================================================================150
   int NUM_THREADS = numBlocks * threadsPerBlock;
-  pthread_t *threads = new pthread_t[NUM_THREADS];
+  pthread_t *threads = new pthread_t[threadsPerBlock];
 
   int rc;
-  int *thread_id = new int[NUM_THREADS];
-
   // set grid, block dim
   setup_grid_size(numBlocks, 1, 1);
   setup_block_size(threadsPerBlock, 1, 1);
 
-  for (long t = 0; t < NUM_THREADS; t++) {
-    void *inp =
-        gen_input_2(t, maxheight, knodes, knodes_elem, currKnode, offset,
-                    lastKnode, offset_2, start, end, recstart, reclength);
-    rc = pthread_create(&threads[t], NULL, wrapper_func_2, inp);
-    if (rc) {
-      printf("ERROR; return code from pthread_create() is %d\n", rc);
-      exit(-1);
+  for (int block_id = 0; block_id < numBlocks; block_id++) {
+    printf("block:%d\n", block_id);
+    for (long t = 0; t < threadsPerBlock; t++) {
+      void *inp = gen_input_2(t + block_id * threadsPerBlock, maxheight, knodes,
+                              knodes_elem, currKnode, offset, lastKnode,
+                              offset_2, start, end, recstart, reclength);
+      rc = pthread_create(&threads[t], NULL, wrapper_func_2, inp);
+      if (rc) {
+        printf("ERROR; return code from pthread_create() is %d\n", rc);
+        exit(-1);
+      }
     }
+    /* Last thing that main() should do */
+    for (long k = 0; k < threadsPerBlock; k++)
+      pthread_join(threads[k], NULL);
   }
-  /* Last thing that main() should do */
-  for (long t = 0; t < NUM_THREADS; t++)
-    pthread_join(threads[t], NULL);
 
   time4 = get_time();
   time5 = get_time();
