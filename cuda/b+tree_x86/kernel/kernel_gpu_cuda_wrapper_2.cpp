@@ -7,14 +7,14 @@
 #include "./kernel_gpu_cuda_wrapper_2.h" // (in the current directory)
 
 extern "C" {
-void *_Z10findRangeKlP5knodelPlS1_S1_S1_PiS2_S2_S2_(void *);
+void *_Z10findRangeKlP5knodelPlS1_S1_S1_PiS2_S2_S2__wrapper(void *);
 }
 
 void *wrapper_func_2(void *p) {
   int **ret = (int **)p;
   int tid = *(ret[0]);
   setup_idx(tid);
-  _Z10findRangeKlP5knodelPlS1_S1_S1_PiS2_S2_S2_((void *)(ret + 1));
+  _Z10findRangeKlP5knodelPlS1_S1_S1_PiS2_S2_S2__wrapper((void *)(ret + 1));
 }
 
 void *gen_input_2(int tid, long height, knode *knodesD, long knodes_elem,
@@ -132,15 +132,6 @@ void kernel_gpu_cuda_wrapper_2(knode *knodes, long knodes_elem, long knodes_mem,
   /* Last thing that main() should do */
   for (long t = 0; t < NUM_THREADS; t++)
     pthread_join(threads[t], NULL);
-  //   // [GPU] findRangeK kernel
-  //   findRangeK<<<numBlocks, threadsPerBlock>>>(maxheight, knodesD,
-  //   knodes_elem,
-
-  //                                              currKnodeD, offsetD,
-  //                                              lastKnodeD, offset_2D, startD,
-  //                                              endD, ansDStart, ansDLength);
-  //   cudaThreadSynchronize();
-  //   checkCUDAError("findRangeK");
 
   time4 = get_time();
   time5 = get_time();

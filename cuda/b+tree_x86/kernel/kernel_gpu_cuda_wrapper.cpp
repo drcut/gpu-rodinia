@@ -7,14 +7,14 @@
 #include "./kernel_gpu_cuda_wrapper.h" // (in current directory)
 
 extern "C" {
-void *_Z5findKlP5knodelP6recordPlS3_PiS2_(void *);
+void *_Z5findKlP5knodelP6recordPlS3_PiS2__wrapper(void *);
 }
 
 void *wrapper_func_1(void *p) {
   int **ret = (int **)p;
   int tid = *(ret[0]);
   setup_idx(tid);
-  _Z5findKlP5knodelP6recordPlS3_PiS2_((void *)(ret + 1));
+  _Z5findKlP5knodelP6recordPlS3_PiS2__wrapper((void *)(ret + 1));
 }
 
 void *gen_input_1(int tid, long height, knode *knodesD, long knodes_elem,

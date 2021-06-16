@@ -79,7 +79,10 @@ C_C = clang++
 b+tree.out:	./main.o \
 		./kernel/kernel_gpu_cuda_wrapper.o \
 		./kernel/kernel_gpu_cuda_wrapper_2.o \
+		./kernel/compiled_file/wrapper_kernel_gpu_cuda.o \
+		./kernel/compiled_file/wrapper_kernel_gpu_cuda_2.o \
 		./util/timer/timer.o \
+		./kernel/library.cpp \
 		./util/num/num.o
 	$(C_C)	./main.o \
 			./kernel/kernel_gpu_cuda_wrapper.o \
