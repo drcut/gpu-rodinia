@@ -43,6 +43,7 @@ void *wrapper_func_forward(void *p) {
   int tid = *(ret[0]);
   setup_idx(tid);
   _Z22bpnn_layerforward_CUDAPfS_S_S_ii_wrapper((void *)(ret + 1));
+  return NULL;
 }
 
 void *wrapper_func_adjust(void *p) {
@@ -50,6 +51,7 @@ void *wrapper_func_adjust(void *p) {
   int tid = *(ret[0]);
   setup_idx(tid);
   _Z24bpnn_adjust_weights_cudaPfiS_iS_S__wrapper((void *)(ret + 1));
+  return NULL;
 }
 
 void *gen_input_adjust(int tid, float *delta, int hid, float *ly, int in,
@@ -89,21 +91,27 @@ void *gen_input_forward(int tid, float *input_cuda, float *output_hidden_cuda,
   int *p0 = new int;
   *p0 = tid;
   ret[0] = (int *)p0;
+
   float **p1 = new float *;
   *p1 = input_cuda;
   ret[1] = (int *)(p1);
+
   float **p2 = new float *;
   *p2 = output_hidden_cuda;
   ret[2] = (int *)(p2);
+
   float **p3 = new float *;
   *p3 = input_hidden_cuda;
   ret[3] = (int *)(p3);
+
   float **p4 = new float *;
   *p4 = hidden_partial_sum;
   ret[4] = (int *)(p4);
+
   int *p5 = new int;
   *p5 = in;
   ret[5] = (int *)p5;
+
   int *p6 = new int;
   *p6 = hid;
   ret[6] = (int *)p6;
@@ -214,10 +222,10 @@ extern "C" void bpnn_train_cuda(BPNN *net, float *eo, float *eh) {
       exit(-1);
     }
   }
+
   /* Last thing that main() should do */
   for (long t = 0; t < NUM_THREADS; t++)
     pthread_join(threads[t], NULL);
-  printf("after\n");
   // dim3 grid(1, num_blocks);
   // dim3 threads(16, 16);
   // bpnn_layerforward_CUDA<<<grid, threads>>>(input_cuda, output_hidden_cuda,
