@@ -176,10 +176,11 @@ void create_matrix(float *m, int size) {
   }
 }
 
+inline int max(int l, int r) { return (l > r) ? l : r; }
 int main(int argc, char *argv[]) {
   printf("WG size of kernel 1 = %d, WG size of kernel 2= %d X %d\n",
          MAXBLOCKSIZE, BLOCK_SIZE_XY, BLOCK_SIZE_XY);
-  int verbose = 0;
+  int verbose = 1;
   int i, j;
   char flag;
   if (argc < 2) {
@@ -346,7 +347,6 @@ void ForwardSub() {
   float *m_cuda, *a_cuda, *b_cuda;
   */
   int block_size, grid_size;
-
   block_size = MAXBLOCKSIZE;
   grid_size = (Size / block_size) + (!(Size % block_size) ? 0 : 1);
 
@@ -354,19 +354,19 @@ void ForwardSub() {
   blockSize2d = BLOCK_SIZE_XY;
   gridSize2d = (Size / blockSize2d) + (!(Size % blockSize2d ? 0 : 1));
 
-  int NUM_THREADS = gridSize2d * gridSize2d * blockSize2d * blockSize2d;
-  pthread_t *threads = new pthread_t[NUM_THREADS];
-
+  // pthread_t *threads =
+  //     new pthread_t[max(block_size * grid_size,
+  //                       blockSize2d * blockSize2d * gridSize2d *
+  //                       gridSize2d)];
   int rc;
-  // set grid, block dim
-  setup_grid_size(gridSize2d, gridSize2d, 1);
-  setup_block_size(blockSize2d, blockSize2d, 1);
-  printf("grid: %d block: %d\n", gridSize2d, blockSize2d);
 
 #ifdef TIMING
   gettimeofday(&tv_kernel_start, NULL);
 #endif
-
+  int NUM_THREADS_Fan1 = block_size * grid_size;
+  pthread_t *threads_Fan1 = new pthread_t[NUM_THREADS_Fan1];
+  int NUM_THREADS_Fan2 = gridSize2d * gridSize2d * blockSize2d * blockSize2d;
+  pthread_t *threads_Fan2 = new pthread_t[NUM_THREADS_Fan2];
   // begin timing kernels
   struct timeval time_start;
   gettimeofday(&time_start, NULL);
@@ -374,32 +374,39 @@ void ForwardSub() {
     // Fan1<<<dimGrid, dimBlock>>>(m_cuda, a_cuda, Size, t);
     // cudaThreadSynchronize();
     {
-      for (long tid = 0; tid < NUM_THREADS; tid++) {
+      // set grid, block dim for F1
+      setup_grid_size(grid_size, 1, 1);
+      setup_block_size(block_size, 1, 1);
+      for (long tid = 0; tid < NUM_THREADS_Fan1; tid++) {
         void *inp = gen_input_Fan1(tid, m, a, Size, t);
-        rc = pthread_create(&threads[t], NULL, wrapper_Fan1, inp);
+        rc = pthread_create(&threads_Fan1[t], NULL, wrapper_Fan1, inp);
         if (rc) {
           printf("ERROR; return code from pthread_create() is %d\n", rc);
           exit(-1);
         }
       }
       /* Last thing that main() should do */
-      for (long tid = 0; tid < NUM_THREADS; tid++)
-        pthread_join(threads[tid], NULL);
+      for (long tid = 0; tid < NUM_THREADS_Fan1; tid++)
+        pthread_join(threads_Fan1[tid], NULL);
     }
     // Fan2<<<dimGridXY, dimBlockXY>>>(m_cuda, a_cuda, b_cuda, Size, Size - t,
     // t); cudaThreadSynchronize();
     {
-      for (long tid = 0; tid < NUM_THREADS; tid++) {
+      // set grid, block dim for F2
+      setup_grid_size(gridSize2d, gridSize2d, 1);
+      setup_block_size(blockSize2d, blockSize2d, 1);
+
+      for (long tid = 0; tid < NUM_THREADS_Fan2; tid++) {
         void *inp = gen_input_Fan2(tid, m, a, b, Size, Size - t, t);
-        rc = pthread_create(&threads[t], NULL, wrapper_Fan2, inp);
+        rc = pthread_create(&threads_Fan2[t], NULL, wrapper_Fan2, inp);
         if (rc) {
           printf("ERROR; return code from pthread_create() is %d\n", rc);
           exit(-1);
         }
       }
       /* Last thing that main() should do */
-      for (long tid = 0; tid < NUM_THREADS; tid++)
-        pthread_join(threads[tid], NULL);
+      for (long tid = 0; tid < NUM_THREADS_Fan2; tid++)
+        pthread_join(threads_Fan2[tid], NULL);
     }
   }
   // end timing kernels
