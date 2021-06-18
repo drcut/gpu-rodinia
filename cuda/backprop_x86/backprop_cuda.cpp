@@ -9,6 +9,9 @@
 #include <string.h>
 #include <sys/time.h>
 
+#include <ctime>
+#include <iostream>
+
 // includes, kernels
 #include "backprop.h"
 
@@ -134,7 +137,7 @@ int main(int argc, char **argv) { setup(argc, argv); }
 
 extern "C" void bpnn_train_cuda(BPNN *net, float *eo, float *eh) {
   int in, hid, out;
-  float out_err, hid_err;
+  // float out_err, hid_err;
 
   in = net->input_n;
   hid = net->hidden_n;
@@ -212,6 +215,7 @@ extern "C" void bpnn_train_cuda(BPNN *net, float *eo, float *eh) {
   int rc;
   int *thread_id = new int[NUM_THREADS];
   printf("before\n");
+  clock_t start = clock();
   for (long t = 0; t < NUM_THREADS; t++) {
     void *inp =
         gen_input_forward(t, input_cuda, output_hidden_cuda, input_hidden_cuda,
@@ -226,6 +230,10 @@ extern "C" void bpnn_train_cuda(BPNN *net, float *eo, float *eh) {
   /* Last thing that main() should do */
   for (long t = 0; t < NUM_THREADS; t++)
     pthread_join(threads[t], NULL);
+
+  clock_t end = clock();
+  std::cout << "first kernel time: "
+            << 1000 * (double)(end - start) / CLOCKS_PER_SEC << "ms\n";
   // dim3 grid(1, num_blocks);
   // dim3 threads(16, 16);
   // bpnn_layerforward_CUDA<<<grid, threads>>>(input_cuda, output_hidden_cuda,
@@ -240,6 +248,13 @@ extern "C" void bpnn_train_cuda(BPNN *net, float *eo, float *eh) {
   //   exit(EXIT_FAILURE);
   // }
   memcpy(partial_sum, hidden_partial_sum, num_blocks * WIDTH * sizeof(float));
+  /*
+  printf("partial sum:\n");
+  for (int i = 0; i < 1024; i++) {
+    printf("%.3f ", partial_sum[i]);
+  }
+  printf("\n");
+  */
   // cudaMemcpy(partial_sum, hidden_partial_sum,
   //            num_blocks * WIDTH * sizeof(float), cudaMemcpyDeviceToHost);
 
@@ -255,10 +270,9 @@ extern "C" void bpnn_train_cuda(BPNN *net, float *eo, float *eh) {
 
   bpnn_layerforward(net->hidden_units, net->output_units, net->hidden_weights,
                     hid, out);
-  bpnn_output_error(net->output_delta, net->target, net->output_units, out,
-                    &out_err);
+  bpnn_output_error(net->output_delta, net->target, net->output_units, out, eo);
   bpnn_hidden_error(net->hidden_delta, hid, net->output_delta, out,
-                    net->hidden_weights, net->hidden_units, &hid_err);
+                    net->hidden_weights, net->hidden_units, eh);
   bpnn_adjust_weights(net->output_delta, out, net->hidden_units, hid,
                       net->hidden_weights, net->hidden_prev_weights);
 
@@ -289,6 +303,7 @@ extern "C" void bpnn_train_cuda(BPNN *net, float *eo, float *eh) {
   //            (in + 1) * (hid + 1) * sizeof(float), cudaMemcpyHostToDevice);
   // cudaMemcpy(input_hidden_cuda, input_weights_one_dim,
   //            (in + 1) * (hid + 1) * sizeof(float), cudaMemcpyHostToDevice);
+  start = clock();
   for (long t = 0; t < NUM_THREADS; t++) {
     void *inp = gen_input_adjust(t, hidden_delta_cuda, hid, input_cuda, in,
                                  input_hidden_cuda, input_prev_weights_cuda);
@@ -301,6 +316,10 @@ extern "C" void bpnn_train_cuda(BPNN *net, float *eo, float *eh) {
   /* Last thing that main() should do */
   for (long t = 0; t < NUM_THREADS; t++)
     pthread_join(threads[t], NULL);
+
+  end = clock();
+  std::cout << "second kernel time: "
+            << 1000 * (double)(end - start) / CLOCKS_PER_SEC << "ms\n";
   // bpnn_adjust_weights_cuda<<<grid, threads>>>(hidden_delta_cuda, hid,
   //                                             input_cuda, in,
   //                                             input_hidden_cuda,
@@ -308,6 +327,19 @@ extern "C" void bpnn_train_cuda(BPNN *net, float *eo, float *eh) {
   memcpy(net->input_units, input_cuda, (in + 1) * sizeof(float));
   memcpy(input_weights_one_dim, input_hidden_cuda,
          (in + 1) * (hid + 1) * sizeof(float));
+  /*
+  printf("input_units :\n");
+  for (int i = 0; i < 16; i++) {
+    printf("%.3f ", net->input_units[i]);
+  }
+  printf("\n");
+
+  printf("input_hidden_cuda :\n");
+  for (int i = 0; i < 16; i++) {
+    printf("%.3f ", input_weights_one_dim[i]);
+  }
+  printf("\n");
+  */
   // cudaMemcpy(net->input_units, input_cuda, (in + 1) * sizeof(float),
   //            cudaMemcpyDeviceToHost);
   // cudaMemcpy(input_weights_one_dim, input_hidden_cuda,
