@@ -379,7 +379,7 @@ void ForwardSub() {
       setup_block_size(block_size, 1, 1);
       for (long tid = 0; tid < NUM_THREADS_Fan1; tid++) {
         void *inp = gen_input_Fan1(tid, m, a, Size, t);
-        rc = pthread_create(&threads_Fan1[t], NULL, wrapper_Fan1, inp);
+        rc = pthread_create(&threads_Fan1[tid], NULL, wrapper_Fan1, inp);
         if (rc) {
           printf("ERROR; return code from pthread_create() is %d\n", rc);
           exit(-1);
